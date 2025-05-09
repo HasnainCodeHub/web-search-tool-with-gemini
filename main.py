@@ -1,4 +1,3 @@
-
 from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel,set_tracing_disabled
 from agents.tool import function_tool
 from agents.run import RunConfig
@@ -36,7 +35,7 @@ config = RunConfig(
 
 
 
-@function_tool("google_search_tool")
+@function_tool("web_search_tool")
 def web_search_tool(query: str, num_results: int = 5):
     """
     Perform a Google search using the Serper API and return top result summaries with source URLs.
@@ -67,11 +66,11 @@ def web_search_tool(query: str, num_results: int = 5):
     try:
         # Make the API request with a timeout
         response = requests.post(url, headers=headers, json=data, timeout=10)
-        
+
         if response.status_code == 200:
             results = response.json()
             organic_results = results.get('organic', [])
-            
+
             if not organic_results:
                 return [{
                     "title": "No Results",
@@ -91,7 +90,7 @@ def web_search_tool(query: str, num_results: int = 5):
                     "summary": summary
                 })
             return results_summary
-        
+
         else:
             return [{
                 "title": "API Error",
@@ -112,19 +111,22 @@ def web_search_tool(query: str, num_results: int = 5):
             "summary": str(e)
         }]
 
-
-async def main():
-    agent = Agent(
-        name="Assistant",
-        instructions="You Are a Helpful Assistant.",
-        tools=[web_search_tool], # add tools here
-        model=model
-    )
-
-    result = await Runner.run(agent, "News about India and Pakistan War .")
-    print(result.final_output)
+agent = Agent(
+    name="Assistant",
+    instructions="You Are a Helpful Assistant.",
+    tools=[web_search_tool], # add tools here
+    model=model
+)
 
 
+async def main(input_text: str):
+    result = await Runner.run(agent, input=input_text, run_config=config)
+    return result.final_output
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    while True:
+        user_input = input('Enter Your Query: ')
+        if user_input.strip().lower() == 'exit':
+            break
+        final_output = asyncio.run(main(user_input))
+        print(final_output)
