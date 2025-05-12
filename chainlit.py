@@ -1,0 +1,134 @@
+import chainlit as cl
+from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, set_tracing_disabled
+from agents.tool import function_tool
+from agents.run import RunConfig
+from dotenv import load_dotenv
+from openai.types.responses import ResponseTextDeltaEvent
+
+import os
+import requests
+
+# Load environment variables
+load_dotenv()
+
+# Get Gemini API key
+gemini_api_key = os.getenv("GEMINI_API_KEY")
+if not gemini_api_key:
+    raise ValueError("GEMINI_API_KEY is not set. Please ensure it is defined in your .env file.")
+
+# Disable tracing
+set_tracing_disabled(disabled=True)
+
+# Configure external client for Gemini API
+external_client = AsyncOpenAI(
+    api_key=gemini_api_key,
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+)
+
+# Define the model
+model = OpenAIChatCompletionsModel(
+    model="gemini-2.0-flash",
+    openai_client=external_client
+)
+
+# Configure run settings
+config = RunConfig(
+    model=model,
+    model_provider=external_client,
+    tracing_disabled=True
+)
+
+# Define the web search tool
+@function_tool("web_search_tool")
+def web_search_tool(query: str, num_results: int = 5):
+    """
+    Perform a Google search using the Serper API and return top result summaries with source URLs.
+    """
+    print("Tool Message: Web Search Tool is Called!")
+    print("=" * 40)
+
+    api_key = os.getenv("SERPER_API_KEY")
+    if not api_key:
+        return [{
+            "title": "Configuration Error",
+            "url": "",
+            "summary": "Serper API key is not set. Please set the SERPER_API_KEY environment variable."
+        }]
+
+    url = "https://google.serper.dev/search"
+    headers = {
+        "X-API-KEY": api_key,
+        "Content-Type": "application/json"
+    }
+    data = {
+        "q": query,
+        "num": num_results
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=10)
+        if response.status_code == 200:
+            results = response.json()
+            organic_results = results.get('organic', [])
+            if not organic_results:
+                return [{
+                    "title": "No Results",
+                    "url": "",
+                    "summary": "No results found for the search query."
+                }]
+
+            results_summary = []
+            for result in organic_results[:num_results]:
+                title = result.get('title', 'No Title')
+                url = result.get('link', '')
+                snippet = result.get('snippet', 'No summary available')
+                summary = f"{snippet}\n\nSource: {url}"
+                results_summary.append({
+                    "title": title,
+                    "url": url,
+                    "summary": summary
+                })
+            return results_summary
+        else:
+            return [{
+                "title": "API Error",
+                "url": "",
+                "summary": f"Error {response.status_code}: {response.text}"
+            }]
+    except requests.exceptions.Timeout:
+        return [{
+            "title": "Request Timeout",
+            "url": "",
+            "summary": "The request timed out. Please try again later."
+        }]
+    except requests.exceptions.RequestException as e:
+        return [{
+            "title": "Request Error",
+            "url": "",
+            "summary": str(e)
+        }]
+
+# Create the agent
+agent = Agent(
+    name="Assistant",
+    instructions="You Are a Helpful Assistant.",
+    tools=[web_search_tool],
+    model=model
+)
+
+# Handle incoming messages in Chainlit
+@cl.on_message
+async def main(message: cl.Message):
+    # Create an initial empty message for streaming
+    msg = cl.Message(content="")
+    await msg.send()
+
+    # Stream the agent's response
+    result = Runner.run_streamed(agent, input=message.content, run_config=config)
+    async for event in result.stream_events():
+        if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
+            # Stream each delta to the same message
+            await msg.stream_token(event.data.delta)
+
+    # Finalize the message
+    await msg.update()
