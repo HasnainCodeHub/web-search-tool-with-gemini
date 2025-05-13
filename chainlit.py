@@ -122,7 +122,7 @@ async def start():
     # Initialize conversation history
     cl.user_session.set('history', [])
     # Send welcome message
-    await cl.Message(content="Hello, How can I help you today?").send()
+    await cl.Message(content="Web Search Tool").send()
 
 @cl.on_message
 async def handle_message(message: cl.Message):
