@@ -116,19 +116,41 @@ agent = Agent(
     model=model
 )
 
-# Handle incoming messages in Chainlit
+
+@cl.on_chat_start
+async def start():
+    # Initialize conversation history
+    cl.user_session.set('history', [])
+    # Send welcome message
+    await cl.Message(content="Hello, How can I help you today?").send()
+
 @cl.on_message
-async def main(message: cl.Message):
-    # Create an initial empty message for streaming
+async def handle_message(message: cl.Message):
+    # Get conversation history
+    history = cl.user_session.get('history')
+    
+    # Initialize response message with streaming enabled
     msg = cl.Message(content="")
     await msg.send()
 
-    # Stream the agent's response
-    result = Runner.run_streamed(agent, input=message.content, run_config=config)
+    # Append user message to history
+    history.append({"role": "user", "content": message.content})
+
+    # Run the agent with the history as input
+    result = Runner.run_streamed(
+        agent,
+        input=history,
+        run_config=config
+    )
+
+    # Stream response events
     async for event in result.stream_events():
         if event.type == "raw_response_event" and isinstance(event.data, ResponseTextDeltaEvent):
-            # Stream each delta to the same message
             await msg.stream_token(event.data.delta)
 
-    # Finalize the message
+    # Append assistant response to history
+    history.append({"role": "assistant", "content": result.final_output})
+    cl.user_session.set('history', history)
+
+    # Finalize the response
     await msg.update()
