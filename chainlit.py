@@ -1,12 +1,10 @@
-import chainlit as cl
+import chainlit as cl,os,requests
 from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, set_tracing_disabled
 from agents.tool import function_tool
 from agents.run import RunConfig
 from dotenv import load_dotenv
 from openai.types.responses import ResponseTextDeltaEvent
 
-import os
-import requests
 
 # Load environment variables
 load_dotenv()
