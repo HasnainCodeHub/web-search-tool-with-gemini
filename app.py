@@ -1,4 +1,4 @@
-import app as cl,os,requests
+import chainlit as cl,os,requests
 from agents import Agent, Runner, AsyncOpenAI, OpenAIChatCompletionsModel, set_tracing_disabled
 from agents.tool import function_tool
 from agents.run import RunConfig
