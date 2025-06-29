@@ -27,7 +27,7 @@ certifi==2025.1.31
 cffi==1.17.1
 charset-normalizer==3.4.1
 chroma-hnswlib==0.7.6
-chromadb==0.5.23
+chromadb
 click==8.1.8
 cloudpickle==3.1.1
 cohere==5.13.12
@@ -281,7 +281,7 @@ termcolor==3.1.0
 threadpoolctl==3.6.0
 tifffile==2025.2.18
 tiktoken==0.7.0
-tokenizers==0.21.1
+tokenizers
 toml==0.10.2
 tomli==2.2.1
 tomli_w==1.2.0
