@@ -238,7 +238,6 @@ python-pptx==1.0.2
 pytube==15.0.0
 pytz==2024.2
 pyvis==0.3.2
-pywin32==308
 PyYAML==6.0.2
 qdrant-client==1.13.2
 referencing==0.36.2
